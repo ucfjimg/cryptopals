@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import base64
+from Crypto.Cipher import AES
+from aes import dec_ctr, enc_ctr
+from english import alice
+
+text = b'L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ=='
+text = base64.decodebytes(text)
+
+key=b'YELLOW SUBMARINE'
+nonce=0
+aes = AES.new(key, AES.MODE_ECB)
+
+print(dec_ctr(text, nonce, aes))
+print(dec_ctr(enc_ctr(alice(), nonce, aes), nonce, aes))

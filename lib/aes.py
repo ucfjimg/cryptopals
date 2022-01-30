@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import struct
+
 def split_blocks(b, blksize=16):
     '''
     Utility function to split a bytes object of crypt or plain
@@ -42,6 +44,10 @@ def pkcs7_unpad(data, blksize):
 
     return data[:-padlen]
 
+#
+# TODO get blksize from underlying AES object rather
+# than hardcoding
+#
 def dec_cbc(ct, iv, aes):
     '''
     Implement CBC mode AES decryption on top of an ECB
@@ -73,6 +79,36 @@ def enc_cbc(pt, iv, aes):
         ct += cblk
         iv = cblk
     return ct
+
+def dec_ctr(ct, nonce, aes):
+    '''
+    Encrypt using CTR mode AES. 'nonce' is a 64 bit integer nonce
+    '''
+    ctr = 0
+    ct = split_blocks(ct, 16)
+    pt = b''
+    while len(ct) > 0:
+        key = aes.encrypt(struct.pack('<QQ', nonce, ctr))
+        ctr += 1
+        pt += bytes([x^y for x,y in zip(ct[0], key)])
+        ct = ct[1:]
+    return pt
+
+def enc_ctr(pt, nonce, aes):
+    '''
+    Decrypt using CTR mode AES. 'nonce' is a 64 bit integer nonce
+    '''
+    ctr = 0
+    pt = split_blocks(pt, 16)
+    ct = b''
+    while len(pt) > 0:
+        key = aes.encrypt(struct.pack('<QQ', nonce, ctr))
+        ctr += 1
+        ct += bytes([x^y for x,y in zip(pt[0], key)])
+        pt = pt[1:]
+    return ct
+
+
 
 def block_size(aes):
     '''

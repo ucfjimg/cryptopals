@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import base64
+from Crypto.Cipher import AES
+from aes import dec_ctr, enc_ctr
+from english import alice, score
+from crmath import randbytes
+from xor import xorb
+cts = [x.strip() for x in open('20.txt').readlines()]
+cts = [x for x in cts if x]
+cts = [base64.decodebytes(bytes(x, 'ascii')) for x in cts]
+
+shortest = min([len(x) for x in cts])
+cts = [x[:shortest] for x in cts]
+
+key=randbytes(16)
+nonce=0
+aes = AES.new(key, AES.MODE_ECB)
+
+cts = [enc_ctr(x, nonce, aes) for x in cts]
+
+#
+# Attack
+# 
+key = b''
+for i in range(shortest):
+    c = bytes(x[i] for x in cts) 
+    k = None
+    best = 0
+    for keybyte in range(256):
+        t = [x^keybyte for x in c]
+        s = score(t)
+        if s > best:
+            best = s
+            k = keybyte
+    key += bytes([k])
+
+for c in cts:
+    print(xorb(c, key))
