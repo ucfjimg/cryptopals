@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import base64
+import random
+import os
+
+from aes import pkcs7, dec_cbc, enc_cbc, is_ecb
+from english import alice
+from crmath import randbytes
+
+def enc(pt):
+    prefix = randbytes(random.randint(5, 10))
+    suffix = randbytes(random.randint(5, 10))
+    pt = pkcs7(prefix + pt + suffix, 16)
+    key = randbytes(16)
+    aes = AES.new(key, AES.MODE_ECB)
+    if random.randint(1, 2) == 1:
+        return 'ecb', aes.encrypt(pt)
+    else:
+        iv = randbytes(16)
+        return 'cbc', enc_cbc(pt, iv, aes)
+         
+pt = alice()
+
+for i in range(100):
+    mode, ct = enc(pt)
+    print((mode == 'ecb') == is_ecb(ct))
+        
+
+
+

@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import base64
+import random
+import os
+from aes import pkcs7, is_ecb, block_size
+from crmath import randbytes
+
+suffix = b'Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK'
+suffix = base64.decodebytes(suffix)
+
+BLKSIZE = 16
+
+# NB consistent key across all calls
+key = randbytes(BLKSIZE)
+aes = AES.new(key, AES.MODE_ECB)
+
+def enc(pt):
+    pt = pkcs7(pt + suffix, BLKSIZE)
+    return aes.encrypt(pt)
+
+blksize = block_size(enc)
+
+print('blocksize ', blksize)
+print('mode', 'ecb' if is_ecb(enc(32 * b'a')) else 'cbc')
+
+l = len(enc(b''))
+pt = (blksize - 1) * b'A'
+
+for bs in range(0, l, blksize):
+    for i in range(0, blksize):
+        d = dict()
+        for by in range(256):
+            ch = bytes([by])
+            test = pt[-(blksize-1):] + ch
+            ct = enc(test)[:blksize]
+            d[ct] = ch
+
+        ct = enc(pt[:blksize-i-1])[bs:bs+blksize]
+        try:
+            # this will start missing at the very end b/c this isn't
+            # robust w/ pcks7 padding but by that point we have the
+            # content
+            pt += d[ct]
+        except:
+            break
+print(pt[blksize-1:])
+    
+
+
+
+
+
+
+
+
+
+
+
+
+

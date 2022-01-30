@@ -62,3 +62,22 @@ def enc_cbc(pt, iv, aes):
         iv = cblk
     return ct
 
+def block_size(aes):
+    '''
+    Given an AES encryption function, determine the blocksize.
+    Note that this can be ANY encryption-like function (i.e.
+    it can be a wrapper that adds prefix or suffix bytes) as
+    long as calling it with successive lengths of plaintext
+    actually means that the plaintext passed to AES increments
+    in the same manner. 'aes' must take a bytes object and
+    return a bytes object.
+    '''
+
+    pt = b'A'
+    l = len(aes(pt))
+    while True:
+        pt += b'A'
+        m = len(aes(pt))
+        if m > l:
+            return m-l
+

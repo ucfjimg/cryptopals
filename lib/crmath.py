@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 def onebits(x):
     '''
     Return the count of '1' bits in the int x
@@ -15,3 +17,10 @@ def hamming(b1, b2):
     Return the hamming distance of the two byte objects
     '''
     return sum([onebits(x^y) for x,y in zip(b1,b2)])
+
+def randbytes(n):
+    '''
+    Return a randomly populated bytes object of length 'n'.
+    '''
+    return os.urandom(n)
+
