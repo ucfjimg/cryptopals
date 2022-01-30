@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+
+from Crypto.Cipher import AES
+import base64
+
+aes = AES.new('YELLOW SUBMARINE', AES.MODE_ECB)
+
+ct = base64.decodebytes(open('7.txt', 'rb').read())
+print(aes.decrypt(ct).decode('ascii'))

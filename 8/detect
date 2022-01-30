@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+from aes import is_ecb
+
+lines = open('8.txt').readlines()
+lines = [bytes.fromhex(x) for x in lines]
+
+for i, l in enumerate(lines):
+    if is_ecb(l):
+        print(i)
+
+

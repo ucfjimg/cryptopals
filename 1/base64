@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+import base64
+
+data = open('input.txt').read().strip()
+data = bytes.fromhex(data)
+print(base64.encodebytes(data))
