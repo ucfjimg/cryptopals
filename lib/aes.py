@@ -37,6 +37,9 @@ def pkcs7_unpad(data, blksize):
     if padlen > blksize:
         raise Exception('invalid pad data')
 
+    if data[-padlen:] != bytes(padlen * [padlen]):
+        raise Exception('invalid pad data')
+
     return data[:-padlen]
 
 def dec_cbc(ct, iv, aes):

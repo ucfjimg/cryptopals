@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from aes import pkcs7_unpad
+
+t = b'ICE ICE BABY\x04\x04\x04\x04'
+print(pkcs7_unpad(t, 16))
+
+try:
+    t = b'ICE ICE BABY\x05\x05\x05\x05'
+    print(pkcs7_unpad(t, 16))
+except:
+    print('case 2 threw exception as expected')
+
+try:
+    t = b'ICE ICE BABY\x01\x02\x03\x04'
+    print(pkcs7_unpad(t, 16))
+except:
+    print('case 3 threw exception as expected')
+
