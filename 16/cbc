@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+from aes import pkcs7, pkcs7_unpad, enc_cbc, dec_cbc, block_size, split_blocks
+from crmath import randbytes
+from xor import xorb
+
+BLKSIZE = 16
+
+# NB consistent key across all calls
+key = randbytes(BLKSIZE)
+iv = randbytes(BLKSIZE)
+aes = AES.new(key, AES.MODE_ECB)
+
+def enc(s):
+    pre = b'comment1=cooking%20MCs;userdata='
+    post = b';comment2=%20like%20a%20pound%20of%20bacon'
+    s = bytes([x for x in s if x != ord(';') and x != ord('=')])
+    return enc_cbc(pkcs7(pre + s + post), iv, aes)
+
+def dec(s):
+    pt = pkcs7_unpad(dec_cbc(s, iv, aes), BLKSIZE).decode('latin1')
+    payload = dict([x.split('=') for x in pt.split(';')])
+    return 'admin' in payload and payload['admin'] == 'true'
+
+
+#
+# Attack
+#
+
+blksize = block_size(enc)
+print('blksize', blksize)
+
+#
+# find a block boundary
+#
+ct1 = split_blocks(enc(b''), blksize)
+ct2 = split_blocks(enc(b'A'), blksize)
+
+for i in range(0, len(ct1)):
+    if ct1[i] != ct2[i]:
+        break
+
+print('block',i,'contains the first pt byte')
+
+ct = enc(4 * blksize * b'B')
+ct = split_blocks(ct, blksize)
+
+pt = blksize * b'B'
+inject = b';admin=true;x='
+inject += (blksize - len(inject)) * b'B'
+
+ct[i] = xorb(inject, xorb(ct[i], blksize * b'B'))
+
+ct = b''.join(ct)
+print(dec(ct))
+
+
+
