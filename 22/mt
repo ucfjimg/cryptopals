@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from crmath import mt19937
+import time
+import random
+
+time.sleep(random.randint(5, 10))
+now = int(time.time())
+mt = mt19937(now)
+print('seed',now)
+
+time.sleep(random.randint(15, 30))
+now = int(time.time())
+v = mt.next()
+
+while True:
+    m = mt19937(now)
+    if m.next() == v:
+        break
+    now -= 1
+
+print(now)
+
+
+
