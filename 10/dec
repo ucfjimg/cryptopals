@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import base64
+from aes import pkcs7, dec_cbc, enc_cbc
+from english import alice
+
+aes = AES.new('YELLOW SUBMARINE', AES.MODE_ECB)
+
+# test with data from site
+#ct = open('10.txt', 'rb').read()
+#ct = base64.decodebytes(ct)
+#iv = bytes(16 * [0])
+#pt = dec_cbc(ct, iv, aes)
+#print(pt)
+
+iv = bytes(16 * [0])
+
+pt = pkcs7(alice(), 16)
+
+ct = enc_cbc(pt, iv, aes)
+pt = dec_cbc(ct, iv, aes)
+print(pt.decode('ascii'))
+
+
+

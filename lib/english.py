@@ -5,7 +5,7 @@ from collections import defaultdict
 
 _dir = path.split(__file__)[0]
 _freq = path.join(_dir, 'freq.txt')
-
+_alice = open(path.join(_dir, 'alice30.txt'), 'rb').read()
 
 def _readfreq():
     lines = [x.rstrip() for x in open(_freq).readlines()]
@@ -30,3 +30,9 @@ def score(text):
     text = [_upper(x) for x in text]
     return sum([_freq[x] for x in text])
 
+def alice():
+    '''
+    Returns the public domain text of 'Alice in Wonderland'
+    from Project Guttenberg, as bytes.
+    '''
+    return _alice
