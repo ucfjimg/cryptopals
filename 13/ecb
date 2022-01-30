@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import os
+
+from aes import pkcs7, pkcs7_unpad, block_size
+from crmath import randbytes
+
+def parse_kv(s):
+    return dict([x.split('=') for x in s.split('&')])
+
+def profile_for(email):
+    email = email.replace('&', '')
+    email = email.replace('=', '')
+    return f'email={email}&uid=10&role=user'
+
+BLKSIZE = 16
+
+# NB consistent key across all calls
+key = randbytes(BLKSIZE)
+aes = AES.new(key, AES.MODE_ECB)
+
+def enc(pt):
+    pt = pkcs7(pt, BLKSIZE)
+    return aes.encrypt(pt)
+
+def enc_profile_for(email):
+    return enc(bytes(profile_for(email), 'ascii'))
+
+def dec_profile(enc):
+    pt = aes.decrypt(enc)
+    pt = pkcs7_unpad(pt, BLKSIZE)
+    return pt
+
+################################################################################
+#
+# attack follows
+# 
+blksize = block_size(lambda x: enc_profile_for(x.decode('ascii')))
+print('blocksize', blksize)
+
+x = enc_profile_for('AAA')
+d = dec_profile(x)
+
+email_offset = d.find(b'AAA')
+user_offset = d.find(b'user')
+pad = (blksize - email_offset % blksize)
+admin_offset = email_offset + pad
+
+# put a pkcs-padded 'admin' as part of the email
+admin = pkcs7(b'admin', blksize).decode('ascii')
+email = pad * 'A' + admin
+
+x = enc_profile_for(email)
+admin_enc = x[blksize:blksize+blksize]
+
+# now figure out how to get 'user' at the start of a block
+#
+# we started with an email of length 3
+#
+user_offset -= 3
+
+pad = blksize - (user_offset % blksize)
+email = pad * 'A'
+x = enc_profile_for(email)[:-blksize] + admin_enc
+
+# check to see if it worked
+print(dec_profile(x))
+
+
+
+
+
+

@@ -30,6 +30,15 @@ def pkcs7(data, blksize=16):
     pad = blksize - len(data) % blksize
     return data + bytes(pad * [pad])
 
+def pkcs7_unpad(data, blksize):
+    if len(data) == 0 or len(data) % blksize != 0:
+        raise Exception('data is empty or not blocked aligned')
+    padlen = data[-1]
+    if padlen > blksize:
+        raise Exception('invalid pad data')
+
+    return data[:-padlen]
+
 def dec_cbc(ct, iv, aes):
     '''
     Implement CBC mode AES decryption on top of an ECB
