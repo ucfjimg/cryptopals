@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import base64
+import random
+from Crypto.Cipher import AES
+from aes import pkcs7, pkcs7_unpad, enc_cbc, dec_cbc, block_size, split_blocks
+from crmath import randbytes
+from xor import xorb
+
+cts = open('16.txt').readlines()
+cts = [x for x in cts if len(x.strip()) != 0]
+cts = [base64.decodebytes(bytes(x, 'ascii')) for x in cts]
+
+BLKSIZE = 16
+
+key = randbytes(BLKSIZE)
+aes = AES.new(key, AES.MODE_ECB)
+
+def enc():
+    iv = randbytes(BLKSIZE)
+    ct = cts[random.randint(0, len(cts) - 1)]
+    return iv, enc_cbc(pkcs7(ct), iv, aes)
+
+def dec(iv, ct):
+    try:
+        pt = pkcs7_unpad(dec_cbc(ct, iv, aes), BLKSIZE)
+    except Exception as ex:
+        return False
+    return True
+
+################################################################################
+#
+# attack
+#
+iv, ct = enc()
+
+# unlike ECB we have to guess at the blocksize
+blksize = 16
+
+# for convenience, let's just prepend the iv as a block and
+# set the iv we use to all zeroes
+blocks = [iv] + split_blocks(ct, blksize)
+iv = blksize * b'0'
+
+# blocks we can modify
+newblocks = [bytearray(x) for x in blocks]
+
+n = len(newblocks)
+
+pt = b''
+for blk in range(n-2, -1, -1):
+    d = bytearray(16 * b'0')
+    for i in range(1, blksize+1):
+        target = blksize - i
+        
+        # fill up with proper padding using what we 
+        # know so far
+        for j in range(target+1, blksize):
+            newblocks[blk][j] = d[j] ^ i
+
+        orig = blocks[blk][target]
+        found = orig
+        for j in range(256):
+            if j == orig:
+                continue
+
+            newblocks[blk][target] = j
+            if dec(iv, b''.join(newblocks)):
+                found = j
+                break
+
+        d[target] = found ^ i
+
+    newblocks[blk] = blocks[blk]
+    newblocks.pop()
+    pt = xorb(d, blocks[blk]) + pt
+
+print(pkcs7_unpad(pt, blksize))
