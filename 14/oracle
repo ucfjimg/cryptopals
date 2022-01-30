@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import base64
+import random
+import os
+
+from aes import pkcs7, is_ecb, block_size, split_blocks
+from crmath import randbytes
+
+suffix = b'Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK'
+suffix = base64.decodebytes(suffix)
+
+BLKSIZE = 16
+
+# NB consistent key across all calls
+key = randbytes(BLKSIZE)
+aes = AES.new(key, AES.MODE_ECB)
+prefix = randbytes(random.randint(5,23))
+
+def enc(pt):
+    pt = pkcs7(prefix + pt + suffix, BLKSIZE)
+    return aes.encrypt(pt)
+
+
+#
+# blocksize
+#
+blksize = block_size(enc)
+
+print('blocksize', blksize)
+print('mode', 'ecb' if is_ecb(enc(3 * blksize * b'a')) else 'cbc')
+
+#
+# find a block boundary
+#
+ct1 = split_blocks(enc(b''))
+ct2 = split_blocks(enc(b'A'))
+
+for i in range(0, len(ct1)):
+    if ct1[i] != ct2[i]:
+        break
+
+print('block',i,'contains the first pt byte')
+
+blk0 = i+1
+pt = blksize * b'A'
+
+while True:
+    pt += b'A'
+    ct = split_blocks(enc(pt))
+    if ct[blk0] == ct[blk0+1]:
+        break
+
+pad = len(pt) % blksize
+
+l = len(enc(b''))
+pt = (pad + blksize - 1) * b'A'
+for bs in range(i * blksize, l, blksize):
+    for i in range(0, blksize):
+        d = dict()
+        for by in range(256):
+            ch = bytes([by])
+            test = pt[-(pad+blksize-1):] + ch
+            ct = enc(test)
+            ct = ct[blk0*blksize:(blk0+1)*blksize]
+            d[ct] = ch
+
+        ct = enc(pt[:pad+blksize-i-1])
+        ct = ct[bs:bs+blksize]
+        try:
+            # this will start missing at the very end b/c this isn't
+            # robust w/ pcks7 padding but by that point we have the
+            # content
+            pt += d[ct]
+        except:
+            break
+print(pt[pad+blksize-1:])
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
