@@ -131,6 +131,19 @@ def mt19937_untemper(y):
 
     return yn
 
+def enc_mt(seed, data):
+    seed &= 0xffff
+    mt = mt19937(seed)
+    ct = []
+    for i in range(0, len(data), 4):
+        by = min(4, len(data) - i)
+        key = mt.next()
+        for j in range(0, by):
+            ct.append((key ^ data[i+j]) & 0xff)
+            key >>= 8
 
+    return bytes(ct)
 
-
+def dec_mt(seed, data):
+    return enc_mt(seed, data)
+        

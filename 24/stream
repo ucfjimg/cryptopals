@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from crmath import enc_mt, dec_mt, randbytes, mt19937
+from english import alice
+import random
+import time
+
+# prove we can enc and dec
+print(dec_mt(1234, enc_mt(1234, alice())))
+print()
+
+n = random.randint(10,20)
+prefix = randbytes(n)
+s = prefix + 14 * b'A'
+
+key = random.randint(0, 0xffff)
+print(key)
+stm = enc_mt(key, s)
+
+# there are only 2^16 keys
+for i in range(0x10000):
+    dec = dec_mt(i, stm)
+    if b'AAAAAAAAAA' in dec:
+        print(i)
+        break
+
+def randresetkey(seed):
+    mt = mt19937(seed)
+    chars = list(range(ord('A'), ord('Z')+1)) + list(range(ord('a'), ord('z')+1))
+    
+    return bytes([chars[mt.next() % len(chars)] for _ in range(16)])
+
+r1 = randresetkey(int(time.time()))
+r2 = randresetkey(290442354)
+
+time.sleep(5)
+
+now = int(time.time())
+
+for i in range(-20, 0):
+    if randresetkey(now + i) == r1:
+        print('r1 is time based')
+    if randresetkey(now + i) == r2:
+        print('r2 is time based')
+        
+    
+        
