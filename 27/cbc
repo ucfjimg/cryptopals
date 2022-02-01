@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+from aes import pkcs7, pkcs7_unpad, enc_cbc, dec_cbc, block_size, split_blocks
+from crmath import randbytes
+from xor import xorb
+
+BLKSIZE = 16
+
+# NB consistent key across all calls
+key = randbytes(BLKSIZE)
+iv = key
+aes = AES.new(key, AES.MODE_ECB)
+
+class BadText(Exception):
+    def __init__(self, msg, bad):
+        Exception.__init__(self, msg)
+        self.bad = bad
+
+
+def sender(userdata):
+    pre = b'comment1=cooking%20MCs;userdata='
+    post = b';comment2=%20like%20a%20pound%20of%20bacon'
+    userdata = bytes([x for x in userdata if x != ord(';') and x != ord('=')])
+    return enc_cbc(pkcs7(pre + userdata + post), iv, aes)
+
+
+def valid_ascii(text):
+    return all([x <= 0x7e for x in text])
+
+def receiver(ct):
+    pt = dec_cbc(ct, iv, aes)
+    if not valid_ascii(pt):
+        raise BadText('invalid token', pt)
+
+    pt = pkcs7_unpad(pt, BLKSIZE)
+    pt = pt.decode('ascii')
+    payload = dict([x.split('=') for x in pt.split(';')])
+    return 'admin' in payload and payload['admin'] == 'true'
+
+print('key =', key)
+
+#
+# Attack
+#
+bs = 16
+
+ct = sender(b'bloop')
+blocks = split_blocks(ct, bs)
+blocks = [blocks[0], bs * b'\x00', blocks[0]]
+ct = b''.join(blocks)
+
+try:
+    receiver(ct)
+except BadText as ex:
+    blocks = split_blocks(ex.bad, bs)
+    print('recovered key =', xorb(blocks[0], blocks[2]))
+
+
