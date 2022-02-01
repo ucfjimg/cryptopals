@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from crmath import randbytes
+from sha1 import Sha1Hash
+
+key = randbytes(16)
+
+def sign(msg):
+    h = Sha1Hash()
+    h.update(msg)
+    return h.digest() + msg
+
+def check(msg):
+    sig = msg[:20]
+    msg = msg[20:]
+    h = Sha1Hash()
+    h.update(msg)
+    return h.digest() == sig
+        
+
+
+text = b'this is my message'
+signed = sign(text)
+print(check(signed))
+print(check(signed + b'...bad stuff'))
+
