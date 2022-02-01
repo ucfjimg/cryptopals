@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+import base64
+from aes import pkcs7, pkcs7_unpad, enc_ctr, dec_ctr, edit_ctr
+from crmath import randbytes
+from xor import xorb
+
+aes = AES.new('YELLOW SUBMARINE', AES.MODE_ECB)
+ct = base64.decodebytes(open('25.txt', 'rb').read())
+pt = pkcs7_unpad(aes.decrypt(ct), 16)
+
+nonce = 0
+
+
+def edit(ct, offset, newtext):
+    return edit_ctr(ct, nonce, offset, newtext, aes)
+    
+ct = enc_ctr(pkcs7(pt), nonce, aes)
+
+
+
+#
+# attack. only allowed to use ct and edit
+#
+key = edit(ct, 0, len(ct) * b'\x00')
+
+print(xorb(key, ct))
+
+

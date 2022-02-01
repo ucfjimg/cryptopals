@@ -44,10 +44,6 @@ def pkcs7_unpad(data, blksize):
 
     return data[:-padlen]
 
-#
-# TODO get blksize from underlying AES object rather
-# than hardcoding
-#
 def dec_cbc(ct, iv, aes):
     '''
     Implement CBC mode AES decryption on top of an ECB
@@ -55,7 +51,8 @@ def dec_cbc(ct, iv, aes):
     both byte objects.
     '''
     # blocks
-    ct = [ct[i:i+16] for i in range(0, len(ct), 16)]
+    bs = aes.block_size
+    ct = [ct[i:i+bs] for i in range(0, len(ct), bs)]
     pt = b''
     for cblk in ct:
         pblk = aes.decrypt(cblk)
@@ -71,7 +68,8 @@ def enc_cbc(pt, iv, aes):
     both byte objects.
     '''
     # blocks
-    pt = [pt[i:i+16] for i in range(0, len(pt), 16)]
+    bs = aes.block_size
+    pt = [pt[i:i+bs] for i in range(0, len(pt), bs)]
     ct = b''
     for pblk in pt:
         pblk = bytes([x^y for x,y in zip(pblk, iv)])
@@ -85,7 +83,7 @@ def dec_ctr(ct, nonce, aes):
     Encrypt using CTR mode AES. 'nonce' is a 64 bit integer nonce
     '''
     ctr = 0
-    ct = split_blocks(ct, 16)
+    ct = split_blocks(ct, aes.block_size)
     pt = b''
     while len(ct) > 0:
         key = aes.encrypt(struct.pack('<QQ', nonce, ctr))
@@ -99,7 +97,7 @@ def enc_ctr(pt, nonce, aes):
     Decrypt using CTR mode AES. 'nonce' is a 64 bit integer nonce
     '''
     ctr = 0
-    pt = split_blocks(pt, 16)
+    pt = split_blocks(pt, aes.block_size)
     ct = b''
     while len(pt) > 0:
         key = aes.encrypt(struct.pack('<QQ', nonce, ctr))
@@ -108,8 +106,37 @@ def enc_ctr(pt, nonce, aes):
         pt = pt[1:]
     return ct
 
+def edit_ctr(ct, nonce, offset, newpt, aes):
+    '''
+    Given a cryptext 'ct', the nonce 'nonce' and aes/key
+    it was encrypted with, replace a section of the encrypted
+    data at 'offset' with new plaintext 'newpt'
 
+    'ct' and 'newpt' must be bytes. For simplicity this function
+    cannot be used to extend 'ct'.
+    '''
+    
+    if offset + len(newpt) > len(ct):
+        raise Exception( "cannot use edit_ctr to append" )
+    bs = aes.block_size
+    blk0 = offset // bs
+    blk1 = (offset + len(newpt) - 1) // bs
+    
+    blocks = split_blocks(ct, bs)
+    blocks = [bytearray(x) for x in blocks]
 
+    for blk in range(blk0, blk1+1):
+        key = aes.encrypt(struct.pack('<QQ', nonce, blk))
+        pt = bytearray([x^y for x,y in zip(blocks[blk], key)])
+        start = offset % bs
+        n = min(len(newpt), bs - start)
+        pt[start:start+n] = newpt[:n]
+        blocks[blk] = bytes([x^y for x,y in zip(pt, key)])
+        offset += n
+        newpt = newpt[n:]
+
+    return b''.join(blocks)
+            
 def block_size(aes):
     '''
     Given an AES encryption function, determine the blocksize.
