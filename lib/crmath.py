@@ -47,7 +47,10 @@ class mt19937:
         self.index = self.n
         self.mt[0] = seed
         for i in range(1, self.n):
-            v = (self.f * (self.mt[i-1] ^ (self.mt[i-1] >> (self.w-2))) + i)
+            v = self.mt[i-1] >> (self.w-2)
+            v = self.mt[i-1] ^ v
+            v = self.f * v
+            v += i
             v &= ((1 << self.w) - 1)
             self.mt[i] = v
 
@@ -56,10 +59,16 @@ class mt19937:
             self.twist()
         y = self.mt[self.index]
 
-        y = y ^ ((y >> self.u) and self.d)
-        y = y ^ ((y << self.s) and self.b)
-        y = y ^ ((y << self.t) and self.c)
+        # NB these are clamped to be 32-bit ops
+        
+        y = y ^ ((y >> self.u) & self.d)
+        y &= 0xffffffff
+        y = y ^ ((y << self.s) & self.b)
+        y &= 0xffffffff
+        y = y ^ ((y << self.t) & self.c)
+        y &= 0xffffffff
         y = y ^ (y >> self.l)
+        y &= 0xffffffff
 
         self.index += 1
         return y & ((1 << self.w) - 1)
@@ -72,5 +81,56 @@ class mt19937:
                 xa = xa ^ self.a
             self.mt[i] = self.mt[(i + self.m) % self.n] ^ xa
         self.index = 0
+
+
+def mt19937_untemper(y):
+    def mask(bits):
+        return (1 << bits) - 1
+
+    def bit(v, idx):
+        '''
+        return the idx'th but of v, returning 0 
+        for out of range index
+        '''
+        if idx < 0 or idx > 31:
+            return 0
+        return (v >> idx) & 1
+
+    def solve_lshift(y, t, c):
+        yn = 0
+        for bn in range(0, 32):
+            aa = bit(y, bn)
+            bb = bit(yn, bn-t)
+            cc = bit(c, bn)
+            dd = aa ^ (bb & cc)
+            yn |= (dd << bn)
+        return yn
+
+    # reverse y = y ^ (y >> self.l)
+    top = y & (mask(18) << 14)
+    bot = (y ^ (y >> 18)) & mask(14)
+    y = top|bot
+
+    # reverse y = y ^ ((y << self.t) & self.c)
+    t = 15
+    c = 0xefc60000
+    y = solve_lshift(y, t, c)
+
+    # reverse y = y ^ ((y << self.s) & self.b)
+    s = 7
+    b = 0x9D2C5680
+    y = solve_lshift(y, s, b)
+
+    # reverse y = y ^ ((y >> self.u) & self.d)
+    # note that d is all 1's so we can ignore it
+    yn = 0
+    for bn in range(31, -1, -1):
+        aa = bit(y, bn)
+        bb = bit(yn, bn+11)
+        yn |= ((aa ^ bb) << bn)
+
+    return yn
+
+
 
 
