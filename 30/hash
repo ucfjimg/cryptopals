@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from md4 import MD4
+from crmath import randbytes
+import struct
+
+key = randbytes(16)
+
+def sign(msg):
+    return MD4(key + msg).bytes() + msg
+
+def verify(msg):
+    sig = msg[:16]
+    msg = msg[16:]
+    return sig == MD4(key + msg).bytes()
+
+#
+# attack
+#
+
+def md4pad(message_len):
+    '''
+    Return the bytes that MD4 would add to a message of 'message_len'
+    bytes before computing the digest.
+    '''
+    chunk = 64
+
+    packed_bit_len = struct.pack('<Q', 8 * message_len)
+    
+    last_chunk_len = message_len % 64
+    last_chunk_left = chunk - last_chunk_len
+
+    if last_chunk_left >= 9:
+        return b'\x80' + (last_chunk_left - 9) * b'\x00' + packed_bit_len
+
+    pad = b'\x80' + (last_chunk_left - 1) * b'\x00'
+
+    return pad + (chunk - 8) * b'\x00' + packed_bit_len
+    chunk = 64
+    packed_bit_len = struct.pack('<Q', 8 * message_len)
+
+    return b'\x80' + ((-message_len + 8) % chunk) * b'\x00' + packed_bit_len
+    
+msg = b'Cat! I\'m a kitty cat/And I dance, dance, dance and I dance, dance, dance'
+
+#
+# verify signing works
+#
+signed = sign(msg)
+print(signed)
+print(verify(signed))
+
+#
+# add a suffix
+#
+suffix = b'I say sexy things to myself while I\'m da-ancing;admin=true'
+
+state = list(struct.unpack('<LLLL', signed[:16]))
+
+for keylen in range(64):
+    msglen = len(msg) + keylen
+    pad = md4pad(msglen)
+    extmsg = msg + pad 
+    msglen += len(pad)
+    extend = MD4(suffix, state, msglen)
+    resigned = extend.bytes() + extmsg + suffix
+    if verify(resigned):
+        print('successfully signed', resigned[16:])
+        print('key of length',keylen)
+        break
+
+

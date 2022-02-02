@@ -32,7 +32,7 @@ def _process_chunk(chunk, h0, h1, h2, h3, h4):
     # Extend the sixteen 4-byte words into eighty 4-byte words
     for i in range(16, 80):
         w[i] = _left_rotate(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1)
-
+        
     # Initialize hash value for this chunk
     a = h0
     b = h1
@@ -91,6 +91,13 @@ class Sha1Hash(object):
         # Length in bytes of all data that has been processed so far
         self._message_byte_length = 0
 
+    def set_state(self, h, prevlen):
+        '''
+        Used to extend a previous message
+        '''
+        self._h = h
+        self._message_byte_length = prevlen
+
     def update(self, arg):
         """Update the current digest.
 
@@ -138,7 +145,7 @@ class Sha1Hash(object):
         # append length of message (before pre-processing), in bits, as 64-bit big-endian integer
         message_bit_length = message_byte_length * 8
         message += struct.pack(b'>Q', message_bit_length)
-
+    
         # Process the final chunk
         # At this point, the length of the message is either 64 or 128 bytes.
         h = _process_chunk(message[:64], *self._h)
@@ -205,4 +212,6 @@ if __name__ == '__main__':
                 print('sha1-digest:', sha1(data))
             else:
                 print("Error, could not find " + argument + " file." )
+
+
 
