@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from http.server import BaseHTTPRequestHandler, HTTPServer 
+from urllib.parse import unquote
+import time
+from english import alice
+from sha1 import hmacsha1
+from crmath import randbytes
+
+host = 'localhost'
+port = 8888
+
+class Server(BaseHTTPRequestHandler):
+    key = randbytes(16)
+    files = { 'alice': hmacsha1(key, alice()) }
+
+    print(files['alice'].hex())
+    
+    @staticmethod
+    def insecure_compare(a, b):
+        if len(a) != len(b):
+            return False
+
+        for x,y in zip(a,b):
+            if x != y:
+                return False
+            time.sleep(0.010)
+
+        return True
+
+    def do_GET(self):
+        path = self.path.split('?')
+        if len(path) == 2:
+            args = path[1].split('&')
+            args = [x.split('=') for x in args]
+            args = [(unquote(x), unquote(y)) for x,y in args]
+            args = dict(args)
+            print(args)
+            
+            if 'file' in args and 'signature' in args:
+                f = args['file']
+                s = args['signature']
+                
+                try:
+                    s = bytes.fromhex(s)
+                except ValueError:
+                    self.send_response(400)
+                    self.end_headers()
+                    return
+
+                if not f in Server.files:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+
+                if not Server.insecure_compare(Server.files[f], s):
+                    self.send_response(500)
+                    self.end_headers()
+                    return
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'ok.')
+
+
+if __name__ == '__main__':
+    server = HTTPServer((host, port), Server)
+    print(f'Starting server on {host}:{port}')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    server.server_close()

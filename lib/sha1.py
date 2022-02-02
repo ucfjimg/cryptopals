@@ -8,6 +8,8 @@ from __future__ import print_function
 import struct
 import io
 
+from xor import xorb
+
 try:
     range = xrange
 except NameError:
@@ -167,6 +169,36 @@ def sha1(data):
     """
     return Sha1Hash().update(data).hexdigest()
 
+
+def hmacsha1(K, m):
+    """HMAC based on SHA-1
+    
+    Compute HMAC based on the SHA-1 hashing function.
+
+    Arguments:
+        K: A bytes or BytesIO object containing the key.
+
+        m: A bytes of BytesIO object containing the message to sign.
+
+    Returns:
+        A bytes object containing the HMAC signature.
+    """
+    
+    BLOCKSIZE = 64
+
+    if len(K) > BLOCKSIZE:
+        K = Sha1Hash().update(K).digest()
+    
+    if len(K) < BLOCKSIZE:
+        K += (BLOCKSIZE - len(K)) * b'\x00'
+
+    opad = xorb(K, BLOCKSIZE * b'\x5c')
+    ipad = xorb(K, BLOCKSIZE * b'\x36')
+
+    h = Sha1Hash().update(ipad + m).digest()
+    h = Sha1Hash().update(opad + h).digest()
+
+    return h
 
 if __name__ == '__main__':
     # Imports required for command line parsing. No need for these elsewhere
