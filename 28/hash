@@ -10,14 +10,14 @@ key = randbytes(16)
 
 def sign(msg):
     h = Sha1Hash()
-    h.update(msg)
+    h.update(key + msg)
     return h.digest() + msg
 
 def check(msg):
     sig = msg[:20]
     msg = msg[20:]
     h = Sha1Hash()
-    h.update(msg)
+    h.update(key + msg)
     return h.digest() == sig
         
 

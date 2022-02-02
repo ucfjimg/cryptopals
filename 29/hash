@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from sha1 import Sha1Hash, sha1
+from crmath import randbytes
+import struct
+
+key = randbytes(16)
+
+def sign(msg):
+    return Sha1Hash().update(key + msg).digest() + msg
+
+
+def verify(msg):
+    sig = msg[:20]
+    msg = msg[20:]
+    return sig == Sha1Hash().update(key + msg).digest()
+
+#
+# attack
+#
+
+def sha1pad(message_len):
+    '''
+    Return the bytes that sha1 would add to a message of 'message_len'
+    bytes before computing the digest.
+    '''
+    chunk = 64
+
+    packed_bit_len = struct.pack('>Q', 8 * message_len)
+    
+    last_chunk_len = message_len % 64
+    last_chunk_left = chunk - last_chunk_len
+
+    if last_chunk_left >= 9:
+        return b'\x80' + (last_chunk_left - 9) * b'\x00' + packed_bit_len
+
+    pad = b'\x80' + (last_chunk_left - 1) * b'\x00'
+
+    return pad + (chunk - 8) * b'\x00' + packed_bit_len
+
+
+msg = b'Cat! I\'m a kitty cat/And I dance, dance, dance and I dance, dance, dance'
+
+#
+# verify signing works
+#
+signed = sign(msg)
+print(signed)
+print(verify(signed))
+
+#
+# add a suffix
+#
+suffix = b'I say sexy things to myself while I\'m da-ancing;admin=true'
+
+for keylen in range(64):
+    msglen = len(msg) + keylen
+    pad = sha1pad(msglen)
+    extmsg = msg + pad 
+    msglen += len(pad)
+    extend = Sha1Hash()
+    extend.set_state(struct.unpack('>IIIII', signed[:20]), msglen)
+    extend.update(suffix)
+    resigned = extend.digest() + extmsg + suffix
+    if verify(resigned):
+        print('successfully signed', resigned[20:])
+        print('key of length',keylen)
+        break
+
+
