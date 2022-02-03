@@ -147,3 +147,16 @@ def enc_mt(seed, data):
 def dec_mt(seed, data):
     return enc_mt(seed, data)
         
+def modexp(a, b, n):
+    '''
+    compute a^b mod n
+    '''
+    e = 1
+    while b != 0:
+        if (b & 1) != 0:
+            e = (e * a) % n
+        a = (a * a) % n
+        b = b >> 1
+
+    return e
+
