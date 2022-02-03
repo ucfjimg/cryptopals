@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+
+import requests
+import time
+
+prefix = b''
+
+for idx in range(19):
+    times = []
+    for by in range(256):
+        sig = prefix + bytes([by])
+        sig += (20 - len(sig)) * b'\x00'
+
+        t = time.time()
+        for j in range(5):
+            r = requests.get('http://localhost:8888?file=alice&signature=' + sig.hex())
+        t = time.time() - t
+        times.append((t, by))
+    times = sorted(times, key = lambda x: -x[0])
+    prefix += bytes([times[0][1]])
+    print(prefix.hex())
+
+for by in range(256):
+    sig = prefix + bytes([by])
+
+    r = requests.get('http://localhost:8888?file=alice&signature=' + sig.hex())
+    if r.status_code == 200:
+        break
+
+print('==>', sig.hex())
