@@ -11,9 +11,9 @@ class DHKeys:
     '''
     A Diffie-Hellman public/private key pair
     ''' 
-    def __init__(self):
+    def __init__(self, g=_g):
         self._prv = random.randint(0, _p-1)
-        self._pub = modexp(_g, self._prv, _p) 
+        self._pub = modexp(g, self._prv, _p) 
 
     def public(self):
         '''

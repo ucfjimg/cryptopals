@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+from diffhell import DHKeys, DHSession
+import diffhell
+from aes import enc_cbc, dec_cbc, pkcs7, pkcs7_unpad
+from crmath import randbytes
+from sha1 import Sha1Hash
+
+alice = DHKeys()
+bob = DHKeys()
+
+pt = b'Cat? I\'m a kitty cat/And I meow, meow, meow and I meow, meow, meow'
+
+#
+# attack - g = 1 which makes s = 1
+#
+alice = DHKeys(g=1)
+bob = DHKeys(g=1)
+
+message = (alice.p(), alice.public())
+bob_sess = DHSession(bob, message[1])
+message = (bob.public())
+alice_sess = DHSession(alice, message)
+
+alice_aes = AES.new(alice_sess.key(), mode=AES.MODE_ECB)
+iv = randbytes(alice_aes.block_size)
+ct = enc_cbc(pkcs7(pt), iv, alice_aes) + iv
+
+key = Sha1Hash().update(bytes([1])).digest()[:16]
+mitm_aes = AES.new(key, mode=AES.MODE_ECB)
+iv = ct[-16:]
+sct = ct[:-16]
+stolen = pkcs7_unpad(dec_cbc(sct, iv, mitm_aes), mitm_aes.block_size)
+print('mitm:',stolen)
+
+#
+# attack - g = p which makes s = 0
+#
+alice = DHKeys(g=diffhell._p)
+bob = DHKeys(g=diffhell._p)
+
+message = (alice.p(), alice.public())
+bob_sess = DHSession(bob, message[1])
+message = (bob.public())
+alice_sess = DHSession(alice, message)
+
+alice_aes = AES.new(alice_sess.key(), mode=AES.MODE_ECB)
+iv = randbytes(alice_aes.block_size)
+ct = enc_cbc(pkcs7(pt), iv, alice_aes) + iv
+
+key = Sha1Hash().update(bytes()).digest()[:16]
+mitm_aes = AES.new(key, mode=AES.MODE_ECB)
+iv = ct[-16:]
+sct = ct[:-16]
+stolen = pkcs7_unpad(dec_cbc(sct, iv, mitm_aes), mitm_aes.block_size)
+print('mitm:',stolen)
+
+#
+# attack - g = p-1 which makes s either 1 or p-1
+#
+alice = DHKeys(g=diffhell._p-1)
+bob = DHKeys(g=diffhell._p-1)
+
+message = (alice.p(), alice.public())
+bob_sess = DHSession(bob, message[1])
+message = (bob.public())
+alice_sess = DHSession(alice, message)
+
+alice_aes = AES.new(alice_sess.key(), mode=AES.MODE_ECB)
+iv = randbytes(alice_aes.block_size)
+ct = enc_cbc(pkcs7(pt), iv, alice_aes) + iv
+
+#
+# s will be 1 or p-1 with 50/50 chance - depends on the even/odd-ness of
+# the private keys
+#
+def s_to_key(s):
+    b = []
+    while s != 0:
+        b.append(s & 0xff)
+        s >>= 8
+
+    return Sha1Hash().update(bytes(b)).digest()[:16]
+
+for key in [s_to_key(1), s_to_key(diffhell._p-1)]:
+    mitm_aes = AES.new(key, mode=AES.MODE_ECB)
+    iv = ct[-16:]
+    sct = ct[:-16]
+    try:
+        stolen = pkcs7_unpad(dec_cbc(sct, iv, mitm_aes), mitm_aes.block_size)
+    except:
+        continue
+    print('mitm:',stolen)
+    break
+
