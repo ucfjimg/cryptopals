@@ -21,6 +21,9 @@ class DHKeys:
         '''
         return self._pub
 
+    def p(self):
+        return _p
+
     def private(self):
         '''
         The private key
@@ -44,6 +47,9 @@ class DHSession:
 
         self._key = Sha1Hash().update(bytes(b)).digest()[:16]
         
+    def s(self):
+        return self._s
+    
     def key(self):
         '''
         The shared symmetric key

@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Cipher import AES
+from diffhell import DHKeys, DHSession
+from aes import enc_cbc, dec_cbc, pkcs7, pkcs7_unpad
+from crmath import randbytes
+from sha1 import Sha1Hash
+
+alice = DHKeys()
+bob = DHKeys()
+
+pt = b'Cat? I\'m a kitty cat/And I meow, meow, meow and I meow, meow, meow'
+
+# without attack
+#
+alice_sess = DHSession(alice, bob.public())
+bob_sess = DHSession(bob, alice.public())
+
+alice_aes = AES.new(alice_sess.key(), mode=AES.MODE_ECB)
+iv = randbytes(alice_aes.block_size)
+
+ct = enc_cbc(pkcs7(pt), iv, alice_aes) + iv
+
+# ct -> bob
+
+iv = ct[-16:]
+ct = ct[:-16]
+
+bob_aes = AES.new(bob_sess.key(), mode=AES.MODE_ECB)
+pt = pkcs7_unpad(dec_cbc(ct, iv, bob_aes), bob_aes.block_size)
+
+print(pt)
+
+# attack
+#
+
+alice = DHKeys()
+bob = DHKeys()
+
+# alice sends p,g,a but mitm intercepts
+message = (alice.p(), alice.public())
+
+mitm = message
+message = (message[0], message[0])
+
+# bob uses the fake public key
+bob_sess = DHSession(bob, message[1])
+
+# bob sends his public key to alice
+message = (bob.public())
+
+# mitm forwards p again instead
+mitm = (mitm[0], mitm[1], message)
+message = (mitm[0])
+
+# alice uses the fake public key
+alice_sess = DHSession(alice, message)
+
+# alice uses the compromised session
+alice_aes = AES.new(alice_sess.key(), mode=AES.MODE_ECB)
+ct = enc_cbc(pkcs7(pt), iv, alice_aes) + iv
+
+# mitm can now decrpyt - s is zero!
+key = Sha1Hash().update(b'').digest()[:16]
+mitm_aes = AES.new(key, mode=AES.MODE_ECB)
+iv = ct[-16:]
+sct = ct[:-16]
+stolen = pkcs7_unpad(dec_cbc(sct, iv, mitm_aes), mitm_aes.block_size)
+print('mitm:',stolen)
+
+# bob can decode as normal
+bob_aes = AES.new(bob_sess.key(), mode=AES.MODE_ECB)
+iv = ct[-16:]
+ct = ct[:-16]
+pt = pkcs7_unpad(dec_cbc(ct, iv, bob_aes), bob_aes.block_size)
+print('bob:', pt)
+
+
+
+
+
+
+
