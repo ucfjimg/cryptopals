@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from Crypto.Hash import SHA256
+import socket
+
+def _recvline(s):
+    line = b''
+    while True:
+        ch = s.recv(1)
+        if ch == b'\n':
+            break
+        line += ch
+    return line.decode('ascii')
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect(('localhost', 8888))
+    user = 'alice'
+
+    msg = bytes(f'{user},0\n', 'ascii')
+    s.send(msg) 
+    line = _recvline(s)
+
+    S = 0 
+    hash = SHA256.new()
+    hash.update(bytes(str(S), 'ascii'))
+    K = hash.hexdigest()
+
+    s.send(bytes(K + '\n', 'ascii'))
+
+    line = _recvline(s)
+    print(line)
+
+
+
