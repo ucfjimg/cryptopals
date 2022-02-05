@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import random
+import socket
+from srp import AuthClient
+
+from crmath import modexp
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.connect(('localhost', 8888))
+
+    c = AuthClient('alice', 'cricket')
+
+    c.run(sock)
+

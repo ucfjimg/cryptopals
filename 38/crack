@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import srp
+from Crypto.Hash import SHA256
+from crmath import modexp
+
+passwords = open('xato-net-10-million-passwords-10000.txt').readlines()
+
+capture = open('mitm.txt').readlines()
+vars = dict([x.strip().split('=') for x in capture])
+
+salt = bytes.fromhex(hex(int(vars['salt']))[2:])
+v = int(vars['v'])
+
+for pw in passwords:
+    pw = bytes(pw.strip(), 'ascii')
+    hash = SHA256.new()
+    hash.update(salt + pw)
+    x = int(hash.hexdigest(), 16)
+    if v == modexp(srp.g, x, srp.N):
+        print(pw.decode('ascii'))
+        break
+
+
+
+
+    
+

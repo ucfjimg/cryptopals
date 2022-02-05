@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+import socketserver
+import srp
+from Crypto.Hash import SHA256
+from crmath import modexp
+import random
+
+class AuthServer:
+    def __init__(self, userdb):
+        self.userdb = userdb
+
+    def run(self, s):
+        N = srp.N
+        g = srp.g
+        k = srp.k
+
+        line = self._recvline(s)
+        user,A = line.split(',')
+        A = int(A)
+        user = self._finduser(user)
+        if user == None:
+            # really should continue exchange to not give 
+            # away that user exists
+            return
+        salt,v = user[1:]
+        v = int(v, 16)
+        b = random.randint(0, N-1)
+        B = k*v + modexp(g, b, N)
+        msg = f'{salt},{hex(B)[2:]}\n'
+        s.send(bytes(msg, 'ascii'))
+
+        hash = SHA256.new()
+        hash.update(bytes(hex(A) + hex(B), 'ascii'))
+        u = int(hash.hexdigest(), 16)
+
+        salt = int(salt, 16)
+        
+        Sp = modexp(A * modexp(v, u, N), b, N)
+        hash = SHA256.new()
+        hash.update(bytes(str(Sp), 'ascii'))
+        K = hash.hexdigest()
+
+        with open('mitm.txt', 'w') as f:
+            f.write(f'salt={salt}\n')
+            f.write(f'A={A}\n')
+            f.write(f'u={u}\n')
+            f.write(f'v={v}\n')
+            f.write(f'b={b}\n')
+            f.write(f'N={N}\n')
+            f.write(f'K={K}\n')
+
+        pk = self._recvline(s)
+
+        if pk == K:
+            s.send(b'200\n')
+        else:
+            s.send(b'403\n')
+
+
+    def _recvline(self, s):
+        line = b''
+        while True:
+            ch = s.recv(1)
+            if ch == b'\n':
+                break
+            line += ch
+        return line.decode('ascii')
+
+    def _finduser(self, user):
+        lines = open(self.userdb, 'r').readlines()
+        lines = [x.strip().split(':') for x in lines]
+        for l in lines:
+            if l[0] == user:
+                return l
+        return None
+
+class AuthHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        s = AuthServer('passwd')
+        s.run(self.request)
+
+with socketserver.TCPServer(('localhost', 8888), AuthHandler) as server:
+    server.serve_forever()
