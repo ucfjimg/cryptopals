@@ -160,3 +160,51 @@ def modexp(a, b, n):
 
     return e
 
+def gcd(a,b):
+    '''
+    Given two integers a and b, use Euclid's algorithm to find the 
+    greatest common denominator
+    '''
+    while True:
+        m = a % b
+        if m == 0:
+            return b
+        a = b
+        b = m
+
+def egcd(a,b):
+    '''
+    Given two integers a and b, use Euclid's extended algorithm 
+    to find the greatest common denominator and u,v such that
+    ua + vb == gcd(a,b)
+    '''
+    history = []
+    while True:
+        r = a % b
+        q = a // b
+        if r == 0:
+            break
+        history.append(q)
+        a = b
+        b = r
+    d = b
+    history.reverse()
+
+    u = 0
+    v = 1
+    for (q) in history:
+        u, v = v, u - v * q
+
+    return d,u,v
+
+def invmod(a, m):
+    '''
+    Return the modular inverse of 'a', mod 'm'; that is, the solution
+    to ax = 1 (mod m)
+    '''
+    g, x, y = egcd(a, m)
+    if g != 1:
+        raise Exception(f'{a} has no modular inverse mod {m}')
+    return x % m
+
+    
