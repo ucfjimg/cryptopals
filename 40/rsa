@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+import sys
+sys.path.append('../lib')
+
+from rsa import genkey,enc,dec
+from crmath import invmod
+
+secret = 123456789123456789001234567890
+def enc_secret(pub):
+    return enc(secret, pub)
+
+#
+# Attack
+#
+
+# get the other side to encrypt the same pt 3 times with
+# different keys
+keys = [genkey(128) for _ in range(3)]
+cts = [enc_secret(x[0]) for x in keys]
+ns = [x[0][0] for x in keys]
+
+# do CRT on the results
+m_s_0 = ns[1] * ns[2]
+m_s_1 = ns[0] * ns[2]
+m_s_2 = ns[0] * ns[1]
+
+N = ns[0] * ns[1] * ns[2]
+
+result =  cts[0] * m_s_0 * invmod(m_s_0, ns[0])
+result += cts[1] * m_s_1 * invmod(m_s_1, ns[1])
+result += cts[2] * m_s_2 * invmod(m_s_2, ns[2])
+result %= N
+
+def cuberoot(n):
+    '''
+    Cube root of potentially very large integer
+    '''
+    low = 1
+    high = 1
+    while high * high * high <= n:
+        high *= 2
+
+    while low <= high:
+        mid = (low + high) // 2
+        midcubed = mid * mid * mid
+
+        if midcubed == n:
+            return mid
+
+        if midcubed < n:
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    # no integral cube root
+    return None
+
+
+print(cuberoot(result))
+
+
